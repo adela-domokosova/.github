@@ -61,7 +61,8 @@ jobs:
         with:
           ref: ${{ matrix.target }}
           fetch-depth: 0
-
+        # pick out the commit i want to backport
+        # test the commit if it can be pushed/merged to the sustaining branch --dry-run
       - name: Create backport branch
         id: create-branch
         env:
@@ -72,32 +73,37 @@ jobs:
           git config user.name "github-action"
           git config user.email "<>"
 
-          git checkout -b $BACKPORT_BRANCH
+          git fetch origin "$BACKPORT_SOURCE"
+          git checkout -b "$BACKPORT_BRANCH"
+  
+          conflict=false
           while read -r commit_sha; do
-            if ! git cherry-pick "$commit_sha"; then
+            if ! git cherry-pick --no-commit "$commit_sha" >/dev/null 2>&1; then
               echo "conflict=true" >> $GITHUB_OUTPUT
-              exit
+              git cherry-pick --abort || true
+              conflict=true
+              break
             fi
           done <<< "$(git log --pretty=format:%H --reverse $MERGE_COMMIT^1..$MERGE_COMMIT^2)"
-          git push origin $BACKPORT_BRANCH
-
-      - name: Handle backport conflict
-        if: steps.create-branch.outputs.conflict
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea #v7.0.1
+          
+          if [ "$conflict" = false ]; then
+          echo "conflict=false" >> $GITHUB_OUTPUT
+          fi
+        # if can be merged ->
+            # create backport branch with empty commit
+            # push the commit to the branch with ssh ssh-key
+      - name: Create empty commit
+        if: ${{ !steps.create-branch.outputs.conflict }}
         env:
-          BACKPORT_TARGET: ${{ matrix.target }}
-          PR_NUMBER: ${{ fromJSON(inputs.pull_request).number }}
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.rest.issues.createComment({
-              issue_number: parseInt(process.env.PR_NUMBER, 10),
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: `Conflict creating backport branch for ${process.env.BACKPORT_TARGET}`
-            })
+          BACKPORT_SOURCE: ${{ fromJSON(inputs.pull_request).base.ref }}
+          BACKPORT_BRANCH: backport/pr-${{ fromJSON(inputs.pull_request).number }}-${{ matrix.target }}
+          MERGE_COMMIT: ${{ fromJSON(inputs.pull_request).merge_commit_sha }}
+        run: |
+            git checkout -b $BACKPORT_BRANCH
+            git commit --allow-empty -m "Initialize backport branch"
+            git push origin $BACKPORT_BRANCH
 
-      - name: Create backport pull request
+      - name: Create PR with empty commit
         if: ${{ !steps.create-branch.outputs.conflict }}
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea #v7.0.1
         env:
@@ -116,3 +122,35 @@ jobs:
               base: process.env.BACKPORT_TARGET,
               body: `This PR is auto-generated as a backport of #${process.env.PR_NUMBER}.`
             });
+      - name: cherry pick to backport branch
+        if: ${{ !steps.create-branch.outputs.conflict }}
+        env:
+          BACKPORT_SOURCE: ${{ fromJSON(inputs.pull_request).base.ref }}
+          BACKPORT_BRANCH: backport/pr-${{ fromJSON(inputs.pull_request).number }}-${{ matrix.target }}
+          MERGE_COMMIT: ${{ fromJSON(inputs.pull_request).merge_commit_sha }}
+        run: |
+          git config user.name "github-action"
+          git config user.email "<>"
+
+          git checkout -b $BACKPORT_BRANCH
+          while read -r commit_sha; do
+            git cherry-pick "$commit_sha"; 
+          done <<< "$(git log --pretty=format:%H --reverse $MERGE_COMMIT^1..$MERGE_COMMIT^2)"
+          git push origin $BACKPORT_BRANCH
+
+        # if cannot be merged ->
+      - name: Handle backport conflict
+        if: steps.create-branch.outputs.conflict
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea #v7.0.1
+        env:
+          BACKPORT_TARGET: ${{ matrix.target }}
+          PR_NUMBER: ${{ fromJSON(inputs.pull_request).number }}
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.issues.createComment({
+              issue_number: parseInt(process.env.PR_NUMBER, 10),
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `Conflict creating backport branch for ${process.env.BACKPORT_TARGET}`
+            })
