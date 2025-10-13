@@ -14,7 +14,9 @@ on:
         description: Associated pull_request event
         required: true
         type: string
-
+    secrets:
+      GH_SECRET:
+        required: true
 jobs:
   prepare:
     runs-on: ubuntu-latest
@@ -124,6 +126,12 @@ jobs:
               base: process.env.BACKPORT_TARGET,
               body: `This PR is auto-generated as a backport of #${process.env.PR_NUMBER}.`
             });
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.GH_SECRET }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
       - name: cherry pick to backport branch
         if: ${{ !steps.create-branch.outputs.conflict }}
         env:
