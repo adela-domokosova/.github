@@ -63,32 +63,32 @@ jobs:
           fetch-depth: 0
         # pick out the commit i want to backport
         # test the commit if it can be pushed/merged to the sustaining branch --dry-run
-      - name: Create backport branch
-        id: create-branch
-        env:
-          BACKPORT_SOURCE: ${{ fromJSON(inputs.pull_request).base.ref }}
-          BACKPORT_BRANCH: backport/pr-${{ fromJSON(inputs.pull_request).number }}-${{ matrix.target }}
-          MERGE_COMMIT: ${{ fromJSON(inputs.pull_request).merge_commit_sha }}
-        run: |
-          git config user.name "github-action"
-          git config user.email "<>"
-
-          git fetch origin "$BACKPORT_SOURCE"
-          git checkout -b "$BACKPORT_BRANCH"
-  
-          conflict=false
-          while read -r commit_sha; do
-            if ! git cherry-pick --no-commit "$commit_sha" >/dev/null 2>&1; then
-              echo "conflict=true" >> $GITHUB_OUTPUT
-              git cherry-pick --abort || true
-              conflict=true
-              break
-            fi
-          done <<< "$(git log --pretty=format:%H --reverse $MERGE_COMMIT^1..$MERGE_COMMIT^2)"
-          
-          if [ "$conflict" = false ]; then
-          echo "conflict=false" >> $GITHUB_OUTPUT
-          fi
+#      - name: Check conflict
+#        id: create-branch
+#        env:
+#          BACKPORT_SOURCE: ${{ fromJSON(inputs.pull_request).base.ref }}
+#          BACKPORT_BRANCH: backport/pr-${{ fromJSON(inputs.pull_request).number }}-${{ matrix.target }}
+#          MERGE_COMMIT: ${{ fromJSON(inputs.pull_request).merge_commit_sha }}
+#        run: |
+#          git config user.name "github-action"
+#          git config user.email "<>"
+#
+#          git fetch origin "$BACKPORT_SOURCE"
+#          git checkout -b "$BACKPORT_BRANCH"
+#
+#          conflict=false
+#          while read -r commit_sha; do
+#            if ! git cherry-pick --no-commit "$commit_sha" >/dev/null 2>&1; then
+#              echo "conflict=true" >> $GITHUB_OUTPUT
+#              git cherry-pick --abort || true
+#              conflict=true
+#              break
+#            fi
+#          done <<< "$(git log --pretty=format:%H --reverse $MERGE_COMMIT^1..$MERGE_COMMIT^2)"
+#
+#          if [ "$conflict" = false ]; then
+#          echo "conflict=false" >> $GITHUB_OUTPUT
+#          fi
         # if can be merged ->
             # create backport branch with empty commit
             # push the commit to the branch with ssh ssh-key
@@ -99,6 +99,8 @@ jobs:
           BACKPORT_BRANCH: backport/pr-${{ fromJSON(inputs.pull_request).number }}-${{ matrix.target }}
           MERGE_COMMIT: ${{ fromJSON(inputs.pull_request).merge_commit_sha }}
         run: |
+            git config user.name "github-action"
+            git config user.email "<>"
             git checkout -b $BACKPORT_BRANCH
             git commit --allow-empty -m "Initialize backport branch"
             git push origin $BACKPORT_BRANCH
