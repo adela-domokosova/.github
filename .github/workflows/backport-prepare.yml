@@ -14,8 +14,9 @@ on:
         description: Associated pull_request event
         required: true
         type: string
-    secrets:
       installation_token:
+        description: Token for PR opening
+        type: string
         required: true
 
 jobs:
@@ -67,11 +68,11 @@ jobs:
 
       - name: Debug incoming secret
         run: |
-          if [ -z "${{ secrets.installation_token }}" ]; then
+          if [ -z "${{ inputs.installation_token }}" ]; then
             echo "installation_token is empty"
             exit 1
           else
-            echo "installation_token length: $(echo "${{ secrets.installation_token }}" | wc -c)"
+            echo "installation_token length: $(echo "${{ inputs.installation_token }}" | wc -c)"
           fi
 
       - name: Create backport branch
@@ -117,7 +118,7 @@ jobs:
           BACKPORT_TARGET: ${{ matrix.target }}
           PR_JSON: ${{ toJson(fromJSON(inputs.pull_request)) }}
         with:
-          github-token: ${{ secrets.installation_token }}
+          github-token: ${{ inputs.installation_token }}
           script: |
             const { repo, owner } = context.repo;
             const pr = JSON.parse(process.env.PR_JSON);
@@ -135,4 +136,4 @@ jobs:
               Original body: #${pr.body}`
             });
 
-          #delete branch in case of conflict
+      #delete branch in case of conflict
