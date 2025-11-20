@@ -14,12 +14,12 @@ on:
         description: Associated pull_request event
         required: true
         type: string
-      backport_app_id:
+      app_id:
         description: Wren Security backport app identification
         required: true
         type: string
     secrets:
-      backport_app_key:
+      app_key:
         required: true
 
 jobs:
@@ -28,8 +28,8 @@ jobs:
     steps:
       - name: Quick Check for App Credentials
         run: |
-          APP_ID="${{ inputs.backport_app_id }}"
-          APP_KEY="${{ inputs.backport_app_key }}"
+          APP_ID="${{ inputs.app_id }}"
+          APP_KEY="${{ inputs.app_key }}"
           
           if [ -z "$APP_ID" ]; then
             echo "empty app id"
@@ -77,8 +77,8 @@ jobs:
     steps:
       - name: Quick Check for App Credentials
         run: |
-          APP_ID="${{ inputs.backport_app_id }}"
-          APP_KEY="${{ inputs.backport_app_key }}"
+          APP_ID="${{ inputs.app_id }}"
+          APP_KEY="${{ inputs.app_key }}"
           
           if [ -z "$APP_ID" ]; then
             echo "empty app id"
@@ -91,8 +91,8 @@ jobs:
         id: generate-token
         uses: actions/create-github-app-token@67018539274d69449ef7c02e8e71183d1719ab42 #v2.1.4
         with:
-          app-id: ${{ inputs.backport_app_id }}
-          private-key: ${{ inputs.backport_app_key }} 
+          app-id: ${{ inputs.app_id }}
+          private-key: ${{ inputs.app_key }} 
 
       - name: Checkout target branch
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 #v5.0.0
@@ -143,7 +143,7 @@ jobs:
           BACKPORT_TARGET: ${{ matrix.target }}
           PR_NUMBER: ${{ fromJSON(inputs.pull_request).number }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ outputs.generate-token.token }}
           script: |
             const { repo, owner } = context.repo;
             await github.rest.pulls.create({
