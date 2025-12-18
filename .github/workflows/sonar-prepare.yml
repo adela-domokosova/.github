@@ -41,16 +41,18 @@ jobs:
           TRIGGER_EVENT: ${{ inputs.workflow_run }}
         run: |
           SONAR_ALLOWED=false
+          OWNER=$(echo '${{ inputs.workflow_run }}' | jq -r '.head_repository.owner.login')
 
+          
           if [ -f pull_request.json ]; then
             echo "pull_request=$(cat pull_request.json | jq -c .)" >> "$GITHUB_OUTPUT"
 
-            if jq -e '.base.ref == "main"' pull_request.json; then
+            if [[ "$OWNER" == "WrenSecurity" ]] && jq -e '.base.ref == "main"' pull_request.json; then
               SONAR_ALLOWED=true
             fi
           fi
 
-          if $(echo "$TRIGGER_EVENT" | jq -e '.event == "push" and .head_branch == "main"'); then
+          if [[ "$OWNER" == "WrenSecurity" ]] && $(echo "$TRIGGER_EVENT" | jq -e '.event == "push" and .head_branch == "main"'); then
             SONAR_ALLOWED=true
           fi
 
