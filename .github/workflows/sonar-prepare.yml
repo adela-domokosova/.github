@@ -40,7 +40,7 @@ jobs:
         env:
           TRIGGER_EVENT: ${{ inputs.workflow_run }}
         run: |
-          SONAR_ALLOWED=false
+          SONAR_ALLOWED=
 
           if [ -f pull_request.json ]; then
             echo "pull_request=$(cat pull_request.json | jq -c .)" >> "$GITHUB_OUTPUT"
@@ -50,7 +50,7 @@ jobs:
             fi
           fi
 
-          if $(echo "$TRIGGER_EVENT" | jq -e '.event == "push" and .head_branch == "main"'); then
+          if $(echo "$TRIGGER_EVENT" | jq -e '.event == "push" and .head_branch == "main" and .repository.owner.login == "WrenSecurity"'); then
             SONAR_ALLOWED=true
           fi
 
